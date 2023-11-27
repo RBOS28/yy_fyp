@@ -3,7 +3,7 @@
 # Comprehensive Script to Set Up and Configure Snort on Raspberry Pi
 
 # Constants and Variables
-SNORT_VERSION="<snort_version>"  # Replace with the desired version of Snort
+SNORT_VERSION="2.9.20"  # Snort version
 SNORT_CONF="/etc/snort/snort.conf"
 RULE_PATH="/etc/snort/rules"
 LOCAL_RULES="${RULE_PATH}/local.rules"
@@ -52,7 +52,7 @@ update_rules() {
 configure_ids() {
     print_header "Configuring Snort as IDS"
     # Modify snort.conf for IDS
-    sudo sed -i 's/IPVAR HOME_NET any/IPVAR HOME_NET [192.168.58.0/24,192.168.20.0/24,10.8.0.0/24]/' $SNORT_CONF
+    sudo sed -i 's/IPVAR HOME_NET any/IPVAR HOME_NET [192.168.58.0\/24,192.168.20.0\/24,10.8.0.0\/24]/' $SNORT_CONF
     # ... other sed commands to configure snort.conf ...
 }
 
@@ -86,3 +86,4 @@ configure_ips
 test_configuration
 
 echo "Snort setup and configuration script executed. Check output for any errors."
+
