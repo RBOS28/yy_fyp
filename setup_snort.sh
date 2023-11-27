@@ -1,60 +1,62 @@
 #!/bin/bash
 
-# Define constants
-SNORT_CONF="/etc/snort/snort.conf"
-SNORT_RULES_DIR="/etc/snort/rules"
-SNORT_LOG_DIR="/var/log/snort"
-SNORT_DYNAMIC_RULES_DIR="/usr/local/lib/snort_dynamicrules"
+# --- Script to Set Up Snort on Raspberry Pi ---
 
-# Step 1: Update and Upgrade the System
-echo "Updating and upgrading the system..."
-sudo apt-get update
-sudo apt-get upgrade -y
+# Constants and Variables
+SNORT_VERSION="<snort_version>"  # Replace with the desired version of Snort
 
-# Step 2: Install Snort and Dependencies
-echo "Installing Snort and necessary dependencies..."
-sudo apt-get install -y snort libpcap-dev libpcre3-dev libdumbnet-dev bison flex make gcc
+# Function: Print a header for a script section
+print_header() {
+    echo "----------------------------------------"
+    echo $1
+    echo "----------------------------------------"
+}
 
-# Step 3: Enabling IP Forwarding for Routing Traffic
-echo "Enabling IP forwarding..."
-sudo sysctl -w net.ipv4.ip_forward=1
+# Update and Upgrade the System
+print_header "Updating and Upgrading the System"
+sudo apt-get update && sudo apt-get upgrade -y
 
-# Step 4: Configure iptables for Traffic Redirection
-echo "Configuring iptables for traffic redirection..."
-sudo iptables -I FORWARD -i eth0 -o wlan0 -j NFQUEUE --queue-num 0
-sudo iptables -I FORWARD -i wlan0 -o eth0 -j NFQUEUE --queue-num 0
+# Install Dependencies for Snort
+print_header "Installing Necessary Dependencies for Snort"
+sudo apt-get install -y build-essential libpcap-dev libpcre3-dev libdumbnet-dev \
+                        bison flex zlib1g-dev liblzma-dev openssl libssl-dev \
+                        libnghttp2-dev libluajit-5.1-dev libhwloc-dev
 
-# Step 5: Setting Up Snort Configuration and Rules
-echo "Setting up Snort configuration and rules directories..."
-sudo mkdir -p $SNORT_RULES_DIR
-sudo mkdir -p $SNORT_LOG_DIR
-sudo mkdir -p $SNORT_DYNAMIC_RULES_DIR
+# Download and Install Snort
+print_header "Downloading and Installing Snort"
+cd /tmp
+wget https://www.snort.org/downloads/snort/snort-${SNORT_VERSION}.tar.gz
+tar -xvzf snort-${SNORT_VERSION}.tar.gz
+cd snort-${SNORT_VERSION}
+./configure --enable-sourcefire && make && sudo make install
 
-# Setting Permissions
-sudo chmod -R 5775 $SNORT_LOG_DIR
-sudo chmod -R 5775 $SNORT_CONF
+# Configure Snort
+print_header "Configuring Snort"
+sudo ldconfig
+sudo ln -s /usr/local/bin/snort /usr/sbin/snort
+sudo mkdir -p /etc/snort/rules
+sudo touch /etc/snort/rules/white_list.rules /etc/snort/rules/black_list.rules /etc/snort/rules/local.rules
+sudo cp -r etc/* /etc/snort
 
-# Creating Blank Rule Files
-sudo touch $SNORT_RULES_DIR/local.rules
-sudo touch $SNORT_RULES_DIR/white_list.rules
-sudo touch $SNORT_RULES_DIR/black_list.rules
+# Update Snort Rules (Example using PulledPork)
+print_header "Updating Snort Rules"
+# Replace this section with PulledPork configuration and execution commands
 
-# Backup Snort Config
-sudo cp $SNORT_CONF $SNORT_CONF.backup
+# Basic Configuration Adjustments
+print_header "Modifying Basic Settings in snort.conf"
+# Customize these commands based on your network
+sudo sed -i 's/var RULE_PATH ..\/rules/var RULE_PATH \/etc\/snort\/rules/g' /etc/snort/snort.conf
+sudo sed -i 's/var SO_RULE_PATH ..\/so_rules/var SO_RULE_PATH \/etc\/snort\/so_rules/g' /etc/snort/snort.conf
+# Add more sed commands for other settings like HOME_NET, EXTERNAL_NET, etc.
 
-# Basic Snort Configuration Adjustments
-echo "Configuring basic Snort settings..."
-sudo sed -i 's/include \$RULE_PATH/#include \$RULE_PATH/' $SNORT_CONF
-echo "include \$RULE_PATH/local.rules" | sudo tee -a $SNORT_CONF
+# Test Snort Configuration
+print_header "Testing Snort Configuration"
+sudo snort -T -c /etc/snort/snort.conf
 
-# Writing Basic Detection and Prevention Rules
-echo "Writing basic Snort detection and prevention rules..."
-echo 'alert icmp any any -> $HOME_NET any (msg:"ICMP Detected"; sid:1000001;)' | sudo tee -a $SNORT_RULES_DIR/local.rules
-echo 'drop tcp any any -> $HOME_NET 23 (msg:"Telnet access attempt"; sid:1000002;)' | sudo tee -a $SNORT_RULES_DIR/local.rules
+# Enable Snort to Run in Inline Mode (IPS)
+print_header "Configuring Snort for Inline Mode (IPS)"
+# Add commands for setting up DAQ in inline mode
+# Add iptables or nfqueue setup commands here
 
-# Step 6: Starting Snort in IDS/IPS Mode
-echo "Starting Snort in IDS/IPS mode..."
-sudo snort -A console -q -c $SNORT_CONF -i eth0:wlan0
-
-echo "Snort IDS/IPS setup is complete."
+echo "Snort setup is complete. Please review the configuration and adjust as necessary."
 
