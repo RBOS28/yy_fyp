@@ -1,40 +1,72 @@
-# Install OpenVPN
-apt install openvpn easy-rsa -y
+#!/bin/bash
 
-# Generate keys & certificates
-make-cadir /etc/openvpn/keys
-cd /etc/openvpn/keys
-openvpn --genkey --secret ta.key
-openvpn --csr server server.csr 
-openvpn --build-ca  
-openvpn --build-key-server server
-openvpn --build-dh
-openvpn --build-client-full client1
+# Update system and install OpenVPN and Easy-RSA
+echo "Updating system and installing OpenVPN and Easy-RSA..."
+apt-get update
+apt-get install -y openvpn easy-rsa
 
-# Server config  
+# Make a directory for Easy-RSA keys and build the CA
+echo "Setting up Easy-RSA..."
+make-cadir /etc/openvpn/easy-rsa
+cd /etc/openvpn/easy-rsa
+
+# Initialize the PKI (Public Key Infrastructure)
+./easyrsa init-pki
+
+# Build the Certificate Authority (CA)
+echo "Building the CA..."
+./easyrsa build-ca nopass
+
+# Generate Diffie-Hellman parameters
+echo "Generating Diffie-Hellman parameters..."
+./easyrsa gen-dh
+
+# Generate server key and certificate
+echo "Generating server key and certificate..."
+./easyrsa build-server-full server nopass
+
+# Generate client key and certificate
+echo "Generating client key and certificate..."
+./easyrsa build-client-full client1 nopass
+
+# Generate HMAC signature to strengthen the server's TLS integrity verification capabilities
+openvpn --genkey --secret /etc/openvpn/ta.key
+
+# Move all generated files to /etc/openvpn
+cp /etc/openvpn/easy-rsa/pki/ca.crt /etc/openvpn
+cp /etc/openvpn/easy-rsa/pki/issued/server.crt /etc/openvpn
+cp /etc/openvpn/easy-rsa/pki/private/server.key /etc/openvpn
+cp /etc/openvpn/easy-rsa/pki/dh.pem /etc/openvpn
+
+# Server Configuration
+echo "Configuring OpenVPN server..."
 cat > /etc/openvpn/server.conf <<EOF
 port 1194
 proto udp
 dev tun
-ca /etc/openvpn/keys/ca.crt
-cert /etc/openvpn/keys/server.crt
-key /etc/openvpn/keys/server.key
-dh /etc/openvpn/keys/dh.pem  
-tls-auth /etc/openvpn/keys/ta.key 0
-cipher AES-256-GCM
+ca ca.crt
+cert server.crt
+key server.key
+dh dh.pem
+tls-auth ta.key 0
+cipher AES-256-CBC
 auth SHA256
-topology subnet
 server 10.8.0.0 255.255.255.0
-ifconfig-pool-persist ipp.txt  
-
+ifconfig-pool-persist ipp.txt
 push "redirect-gateway def1 bypass-dhcp"
 push "dhcp-option DNS 8.8.8.8"
+push "dhcp-option DNS 8.8.4.4"
 keepalive 10 120
-explicit-exit-notify 1
 persist-key
 persist-tun
-status /var/log/openvpn-status.log
-log /var/log/openvpn.log
-verb 4
-mute 20
+status openvpn-status.log
+verb 3
 EOF
+
+# Enable and start the OpenVPN service
+echo "Enabling and starting OpenVPN service..."
+systemctl enable openvpn@server
+systemctl start openvpn@server
+
+echo "OpenVPN server setup is complete."
+
