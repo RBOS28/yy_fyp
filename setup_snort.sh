@@ -1,57 +1,60 @@
 #!/bin/bash
 
-# Updating and Upgrading the System
+# Define constants
+SNORT_CONF="/etc/snort/snort.conf"
+SNORT_RULES_DIR="/etc/snort/rules"
+SNORT_LOG_DIR="/var/log/snort"
+SNORT_DYNAMIC_RULES_DIR="/usr/local/lib/snort_dynamicrules"
+
+# Step 1: Update and Upgrade the System
 echo "Updating and upgrading the system..."
 sudo apt-get update
 sudo apt-get upgrade -y
 
-# Installing Snort and Dependencies
+# Step 2: Install Snort and Dependencies
 echo "Installing Snort and necessary dependencies..."
 sudo apt-get install -y snort libpcap-dev libpcre3-dev libdumbnet-dev bison flex make gcc
 
-# Enabling IP Forwarding for Routing Traffic
+# Step 3: Enabling IP Forwarding for Routing Traffic
 echo "Enabling IP forwarding..."
-echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
+sudo sysctl -w net.ipv4.ip_forward=1
 
-# Configuring iptables for NFQUEUE and Snort
-# Forwarding traffic from eth0 to wlan0 and vice versa through NFQUEUE
+# Step 4: Configure iptables for Traffic Redirection
 echo "Configuring iptables for traffic redirection..."
 sudo iptables -I FORWARD -i eth0 -o wlan0 -j NFQUEUE --queue-num 0
 sudo iptables -I FORWARD -i wlan0 -o eth0 -j NFQUEUE --queue-num 0
 
-# Creating Snort Configuration Directory
-echo "Creating configuration directory for Snort..."
-sudo mkdir -p /etc/snort/rules
-sudo mkdir -p /etc/snort/preproc_rules
-sudo mkdir -p /var/log/snort
-sudo mkdir -p /usr/local/lib/snort_dynamicrules
+# Step 5: Setting Up Snort Configuration and Rules
+echo "Setting up Snort configuration and rules directories..."
+sudo mkdir -p $SNORT_RULES_DIR
+sudo mkdir -p $SNORT_LOG_DIR
+sudo mkdir -p $SNORT_DYNAMIC_RULES_DIR
 
 # Setting Permissions
-echo "Setting permissions for Snort directories..."
-sudo chmod -R 5775 /var/log/snort
-sudo chmod -R 5775 /etc/snort
+sudo chmod -R 5775 $SNORT_LOG_DIR
+sudo chmod -R 5775 $SNORT_CONF
 
 # Creating Blank Rule Files
-echo "Creating blank rule files..."
-sudo touch /etc/snort/rules/white_list.rules
-sudo touch /etc/snort/rules/black_list.rules
-sudo touch /etc/snort/rules/local.rules
+sudo touch $SNORT_RULES_DIR/local.rules
+sudo touch $SNORT_RULES_DIR/white_list.rules
+sudo touch $SNORT_RULES_DIR/black_list.rules
 
-# Basic Snort Configuration
-echo "Configuring Snort..."
-sudo cp /etc/snort/snort.conf /etc/snort/snort.conf.backup
-sudo sed -i 's/include \$RULE\_PATH/#include \$RULE\_PATH/' /etc/snort/snort.conf
-echo "include \$RULE_PATH/local.rules" | sudo tee -a /etc/snort/snort.conf
+# Backup Snort Config
+sudo cp $SNORT_CONF $SNORT_CONF.backup
 
-# Writing Basic Rules
-echo "Writing basic Snort rules..."
-echo 'alert icmp any any -> $HOME_NET any (msg:"ICMP Detected"; sid:10000001;)' | sudo tee /etc/snort/rules/local.rules
-echo 'drop tcp any any -> $HOME_NET 23 (msg:"Telnet access attempt"; sid:10000002;)' | sudo tee -a /etc/snort/rules/local.rules
+# Basic Snort Configuration Adjustments
+echo "Configuring basic Snort settings..."
+sudo sed -i 's/include \$RULE_PATH/#include \$RULE_PATH/' $SNORT_CONF
+echo "include \$RULE_PATH/local.rules" | sudo tee -a $SNORT_CONF
 
-# Starting Snort in IDS/IPS Mode
+# Writing Basic Detection and Prevention Rules
+echo "Writing basic Snort detection and prevention rules..."
+echo 'alert icmp any any -> $HOME_NET any (msg:"ICMP Detected"; sid:1000001;)' | sudo tee -a $SNORT_RULES_DIR/local.rules
+echo 'drop tcp any any -> $HOME_NET 23 (msg:"Telnet access attempt"; sid:1000002;)' | sudo tee -a $SNORT_RULES_DIR/local.rules
+
+# Step 6: Starting Snort in IDS/IPS Mode
 echo "Starting Snort in IDS/IPS mode..."
-sudo snort -A console -q -c /etc/snort/snort.conf -i eth0:wlan0
+sudo snort -A console -q -c $SNORT_CONF -i eth0:wlan0
 
-echo "Snort IDS/IPS setup completed."
+echo "Snort IDS/IPS setup is complete."
 
