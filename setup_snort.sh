@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# --- Script to Set Up Snort on Raspberry Pi ---
+# Comprehensive Script to Set Up and Configure Snort on Raspberry Pi
 
 # Constants and Variables
 SNORT_VERSION="<snort_version>"  # Replace with the desired version of Snort
+SNORT_CONF="/etc/snort/snort.conf"
+RULE_PATH="/etc/snort/rules"
+LOCAL_RULES="${RULE_PATH}/local.rules"
 
 # Function: Print a header for a script section
 print_header() {
     echo "----------------------------------------"
-    echo $1
+    echo "$1"
     echo "----------------------------------------"
 }
 
@@ -34,29 +37,52 @@ cd snort-${SNORT_VERSION}
 print_header "Configuring Snort"
 sudo ldconfig
 sudo ln -s /usr/local/bin/snort /usr/sbin/snort
-sudo mkdir -p /etc/snort/rules
-sudo touch /etc/snort/rules/white_list.rules /etc/snort/rules/black_list.rules /etc/snort/rules/local.rules
+sudo mkdir -p $RULE_PATH
+sudo touch $LOCAL_RULES
+sudo touch $RULE_PATH/white_list.rules $RULE_PATH/black_list.rules
 sudo cp -r etc/* /etc/snort
 
-# Update Snort Rules (Example using PulledPork)
-print_header "Updating Snort Rules"
-# Replace this section with PulledPork configuration and execution commands
+# Update Snort Rules
+update_rules() {
+    print_header "Updating Snort Rules"
+    # Add commands to update Snort rules here (e.g., PulledPork)
+}
 
-# Basic Configuration Adjustments
-print_header "Modifying Basic Settings in snort.conf"
-# Customize these commands based on your network
-sudo sed -i 's/var RULE_PATH ..\/rules/var RULE_PATH \/etc\/snort\/rules/g' /etc/snort/snort.conf
-sudo sed -i 's/var SO_RULE_PATH ..\/so_rules/var SO_RULE_PATH \/etc\/snort\/so_rules/g' /etc/snort/snort.conf
-# Add more sed commands for other settings like HOME_NET, EXTERNAL_NET, etc.
+# Configure Snort for IDS
+configure_ids() {
+    print_header "Configuring Snort as IDS"
+    # Modify snort.conf for IDS
+    sudo sed -i 's/IPVAR HOME_NET any/IPVAR HOME_NET [your_home_net]/' $SNORT_CONF
+    # ... other sed commands to configure snort.conf ...
+}
+
+# Add Custom Rules
+add_custom_rules() {
+    print_header "Adding custom IDS rules"
+    echo "alert tcp any any -> $HOME_NET 23 (msg:\"TELNET attempt\"; sid:1000001; rev:001;)" > $LOCAL_RULES
+    # ... add more custom rules ...
+}
+
+# Configure Snort for IPS (Inline Mode)
+configure_ips() {
+    print_header "Configuring Snort for Inline Mode (IPS)"
+    # Modify snort.conf for inline operation
+    sudo sed -i 's/# config daq: afpacket/config daq: afpacket/' $SNORT_CONF
+    sudo sed -i 's/# config daq_mode: inline/config daq_mode: inline/' $SNORT_CONF
+    # ... other sed commands for inline mode ...
+}
 
 # Test Snort Configuration
-print_header "Testing Snort Configuration"
-sudo snort -T -c /etc/snort/snort.conf
+test_configuration() {
+    print_header "Testing Snort Configuration"
+    sudo snort -T -c $SNORT_CONF
+}
 
-# Enable Snort to Run in Inline Mode (IPS)
-print_header "Configuring Snort for Inline Mode (IPS)"
-# Add commands for setting up DAQ in inline mode
-# Add iptables or nfqueue setup commands here
+# Main execution
+update_rules
+configure_ids
+add_custom_rules
+configure_ips
+test_configuration
 
-echo "Snort setup is complete. Please review the configuration and adjust as necessary."
-
+echo "Snort setup and configuration script executed. Check output for any errors."
