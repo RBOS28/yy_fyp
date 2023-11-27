@@ -52,7 +52,7 @@ update_rules() {
 configure_ids() {
     print_header "Configuring Snort as IDS"
     # Modify snort.conf for IDS
-    sudo sed -i 's/IPVAR HOME_NET any/IPVAR HOME_NET [your_home_net]/' $SNORT_CONF
+    sudo sed -i 's/IPVAR HOME_NET any/IPVAR HOME_NET [192.168.58.0/24,192.168.20.0/24,10.8.0.0/24]/' $SNORT_CONF
     # ... other sed commands to configure snort.conf ...
 }
 
